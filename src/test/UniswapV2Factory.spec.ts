@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { constants as ethconst, Wallet } from "ethers";
-import { UniswapV2Factory } from "../typechain";
+import { UniswapV2Factory } from "../types";
 
 import { getCreate2Address } from "./shared/utilities";
 import { ethers, waffle } from "hardhat";
@@ -19,7 +19,7 @@ describe("UniswapV2Factory", () => {
   async function fixture([wallet, other]: Wallet[]) {
     const tmp = await ethers.getContractFactory("UniswapV2Factory");
     const factory = await tmp.deploy(wallet.address);
-    return { factory: factory as UniswapV2Factory, wallet, other };
+    return { factory: factory, wallet, other };
   }
 
   it("feeTo, feeToSetter, allPairsLength", async () => {
@@ -73,7 +73,7 @@ describe("UniswapV2Factory", () => {
     const { factory } = await loadFixture(fixture);
     const tx = await factory.createPair(...TEST_ADDRESSES);
     const receipt = await tx.wait();
-    expect(receipt.gasUsed).to.eq(2364073);
+    expect(receipt.gasUsed).to.eq(2355845);
   });
 
   it("setFeeTo", async () => {

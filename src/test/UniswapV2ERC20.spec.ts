@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import { ethers, waffle } from "hardhat";
-import { ERC20 } from "../typechain";
 import { expandTo18Decimals, getApprovalDigest } from "./shared/utilities";
 import type { Wallet } from "ethers";
 import { BigNumber } from "ethers";
@@ -15,11 +14,9 @@ describe("UniswapV2ERC20", () => {
   );
 
   async function fixture([wallet, other]: Wallet[]) {
-    const factory = await ethers.getContractFactory(
-      "contracts/test/ERC20.sol:ERC20"
-    );
+    const factory = await ethers.getContractFactory("ERC20");
     const token = await factory.deploy(TOTAL_SUPPLY);
-    return { token: token as ERC20, wallet, other };
+    return { token: token, wallet, other };
   }
 
   it("name, symbol, decimals, totalSupply, balanceOf, DOMAIN_SEPARATOR, PERMIT_TYPEHASH", async () => {

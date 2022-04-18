@@ -4,11 +4,13 @@ import { HardhatUserConfig } from "hardhat/config";
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
+import "@nomiclabs/hardhat-ethers";
+import "@nomiclabs/hardhat-waffle";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 
 // tasks
-import "./tasks/accounts";
+import "./src/tasks/accounts";
 
 dotenv.config();
 
@@ -16,7 +18,7 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       chainId: 1,
-      blockGasLimit: 20000000,
+      blockGasLimit: 30000000,
     },
   },
   solidity: {
@@ -26,14 +28,21 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 9999,
       },
+      metadata: {
+        bytecodeHash: "none",
+      },
     },
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD",
   },
-  etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+  typechain: {
+    outDir: "./src/types",
+    target: "ethers-v5",
+  },
+  paths: {
+    tests: "./src/test",
   },
 };
 
