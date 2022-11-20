@@ -1,21 +1,19 @@
 import { expect } from "chai";
-import { BigNumber, constants as ethconst, Wallet } from "ethers";
-import { ethers, waffle } from "hardhat";
+import { BigNumber, constants as ethconst } from "ethers";
+import { ethers } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 
 import { expandTo18Decimals, encodePrice } from "./shared/utilities";
 import { UniswapV2Pair, ERC20 } from "../../typechain-types";
-import { Provider } from "@ethersproject/providers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 const MINIMUM_LIQUIDITY = BigNumber.from(10).pow(3);
 
 describe("UniswapV2Pair", () => {
-  const loadFixture = waffle.createFixtureLoader(
-    waffle.provider.getWallets(),
-    waffle.provider
-  );
+  async function fixture() {
+    const [wallet, other] = await ethers.getSigners();
 
-  async function fixture([wallet, other]: Wallet[], provider: Provider) {
     const factory = await (
       await ethers.getContractFactory("UniswapV2Factory")
     ).deploy(wallet.address);
@@ -34,7 +32,7 @@ describe("UniswapV2Pair", () => {
     const token0Address = await pair.token0();
     const token0 = tokenA.address === token0Address ? tokenA : tokenB;
     const token1 = tokenA.address === token0Address ? tokenB : tokenA;
-    return { pair, token0, token1, wallet, other, factory, provider };
+    return { pair, token0, token1, wallet, other, factory };
   }
 
   it("mint", async () => {
@@ -74,7 +72,7 @@ describe("UniswapV2Pair", () => {
     token0: ERC20,
     token1: ERC20,
     pair: UniswapV2Pair,
-    wallet: Wallet,
+    wallet: SignerWithAddress,
     token0Amount: BigNumber,
     token1Amount: BigNumber
   ) {
@@ -261,9 +259,7 @@ describe("UniswapV2Pair", () => {
   });
 
   it("swap:gas", async () => {
-    const { pair, wallet, token0, token1, provider } = await loadFixture(
-      fixture
-    );
+    const { pair, wallet, token0, token1 } = await loadFixture(fixture);
 
     const token0Amount = expandTo18Decimals(5);
     const token1Amount = expandTo18Decimals(10);
@@ -277,12 +273,12 @@ describe("UniswapV2Pair", () => {
     );
 
     // ensure that setting price{0,1}CumulativeLast for the first time doesn't affect our gas math
-    await provider.send("evm_mine", [
-      (await provider.getBlock("latest")).timestamp + 1,
+    await ethers.provider.send("evm_mine", [
+      (await ethers.provider.getBlock("latest")).timestamp + 1,
     ]);
 
     await time.setNextBlockTimestamp(
-      (await provider.getBlock("latest")).timestamp + 1
+      (await ethers.provider.getBlock("latest")).timestamp + 1
     );
     await pair.sync();
 
@@ -290,7 +286,7 @@ describe("UniswapV2Pair", () => {
     const expectedOutputAmount = BigNumber.from("453305446940074565");
     await token1.transfer(pair.address, swapAmount);
     await time.setNextBlockTimestamp(
-      (await provider.getBlock("latest")).timestamp + 1
+      (await ethers.provider.getBlock("latest")).timestamp + 1
     );
     const tx = await pair.swap(expectedOutputAmount, 0, wallet.address, "0x");
     const receipt = await tx.wait();
@@ -349,9 +345,7 @@ describe("UniswapV2Pair", () => {
   });
 
   it("price{0,1}CumulativeLast", async () => {
-    const { pair, wallet, token0, token1, provider } = await loadFixture(
-      fixture
-    );
+    const { pair, wallet, token0, token1 } = await loadFixture(fixture);
 
     const token0Amount = expandTo18Decimals(3);
     const token1Amount = expandTo18Decimals(3);

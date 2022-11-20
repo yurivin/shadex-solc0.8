@@ -1,21 +1,14 @@
-import { Provider } from "@ethersproject/providers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-import { BigNumber, Contract, Wallet } from "ethers";
-import { ethers, waffle } from "hardhat";
-import {
-  expandTo18Decimals,
-  getApprovalDigest,
-  MINIMUM_LIQUIDITY,
-} from "./shared/utilities";
+import { BigNumber, Contract } from "ethers";
+import { ethers } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { expandTo18Decimals, MINIMUM_LIQUIDITY } from "./shared/utilities";
+import { UniswapV2Pair } from "../../typechain-types";
 
 describe("UniswapV2Router", () => {
-  const loadFixture = waffle.createFixtureLoader(
-    waffle.provider.getWallets(),
-    waffle.provider
-  );
-
-  async function v2Fixture([wallet]: Wallet[], provider: Provider) {
+  async function v2Fixture() {
+    const [wallet] = await ethers.getSigners();
     const token = await ethers.getContractFactory("ERC20");
 
     // deploy tokens
@@ -47,8 +40,8 @@ describe("UniswapV2Router", () => {
     const pair = new Contract(
       pairAddress,
       pairFactory.interface,
-      provider
-    ).connect(wallet);
+      wallet
+    ) as UniswapV2Pair;
 
     const token0Address = await pair.token0();
     const token0 = tokenA.address === token0Address ? tokenA : tokenB;
@@ -63,8 +56,8 @@ describe("UniswapV2Router", () => {
     const wethPair = new Contract(
       WETHPairAddress,
       pairFactory.interface,
-      provider
-    ).connect(wallet);
+      wallet
+    );
 
     return {
       token0,
@@ -77,7 +70,6 @@ describe("UniswapV2Router", () => {
       RouterEmit,
       wallet,
       wethPair,
-      provider,
     };
   }
 
@@ -441,20 +433,36 @@ describe("UniswapV2Router", () => {
     const expectedLiquidity = expandTo18Decimals(2);
 
     const nonce = await pair.nonces(wallet.address);
-    const digest = await getApprovalDigest(
-      pair,
+    const tokenName = await pair.name();
+    const chainId = await wallet.getChainId();
+    const sig = await wallet._signTypedData(
+      // "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+      {
+        name: tokenName,
+        version: "1",
+        chainId: chainId,
+        verifyingContract: pair.address,
+      },
+      // "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+      {
+        Permit: [
+          { name: "owner", type: "address" },
+          { name: "spender", type: "address" },
+          { name: "value", type: "uint256" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      },
       {
         owner: wallet.address,
         spender: router02.address,
         value: expectedLiquidity.sub(MINIMUM_LIQUIDITY),
-      },
-      nonce,
-      ethers.constants.MaxUint256
+        nonce: nonce,
+        deadline: ethers.constants.MaxUint256,
+      }
     );
 
-    const { v, r, s } = wallet
-      ._signingKey()
-      .signDigest(Buffer.from(digest.slice(2), "hex"));
+    const { r, s, v } = ethers.utils.splitSignature(sig);
 
     await router02.removeLiquidityWithPermit(
       token0.address,
@@ -486,20 +494,38 @@ describe("UniswapV2Router", () => {
     const expectedLiquidity = expandTo18Decimals(2);
 
     const nonce = await wethPair.nonces(wallet.address);
-    const digest = await getApprovalDigest(
-      wethPair,
+
+    const tokenName = await wethPair.name();
+    const chainId = await wallet.getChainId();
+
+    const sig = await wallet._signTypedData(
+      // "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+      {
+        name: tokenName,
+        version: "1",
+        chainId: chainId,
+        verifyingContract: wethPair.address,
+      },
+      // "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+      {
+        Permit: [
+          { name: "owner", type: "address" },
+          { name: "spender", type: "address" },
+          { name: "value", type: "uint256" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      },
       {
         owner: wallet.address,
         spender: router02.address,
         value: expectedLiquidity.sub(MINIMUM_LIQUIDITY),
-      },
-      nonce,
-      ethers.constants.MaxUint256
+        nonce: nonce,
+        deadline: ethers.constants.MaxUint256,
+      }
     );
 
-    const { v, r, s } = wallet
-      ._signingKey()
-      .signDigest(Buffer.from(digest.slice(2), "hex"));
+    const { r, s, v } = ethers.utils.splitSignature(sig);
 
     await router02.removeLiquidityETHWithPermit(
       WETHPartner.address,
@@ -588,8 +614,9 @@ describe("UniswapV2Router", () => {
     });
 
     it("gas", async () => {
-      const { router02, token0, token1, wallet, pair, provider } =
-        await loadFixture(v2Fixture);
+      const { router02, token0, token1, wallet, pair } = await loadFixture(
+        v2Fixture
+      );
 
       // before each
       await token0.transfer(pair.address, token0Amount);
@@ -599,13 +626,13 @@ describe("UniswapV2Router", () => {
 
       // ensure that setting price{0,1}CumulativeLast for the first time doesn't affect our gas math
       await time.setNextBlockTimestamp(
-        (await provider.getBlock("latest")).timestamp + 1
+        (await ethers.provider.getBlock("latest")).timestamp + 1
       );
       await pair.sync();
 
       await token0.approve(router02.address, ethers.constants.MaxUint256);
       await time.setNextBlockTimestamp(
-        (await provider.getBlock("latest")).timestamp + 1
+        (await ethers.provider.getBlock("latest")).timestamp + 1
       );
       const tx = await router02.swapExactTokensForTokens(
         swapAmount,
@@ -792,7 +819,6 @@ describe("UniswapV2Router", () => {
         WETHPartner,
         wethPair: WETHPair,
         WETH,
-        provider,
       } = await loadFixture(v2Fixture);
 
       const WETHPartnerAmount = expandTo18Decimals(10);
@@ -807,13 +833,13 @@ describe("UniswapV2Router", () => {
 
       // ensure that setting price{0,1}CumulativeLast for the first time doesn't affect our gas math
       await time.setNextBlockTimestamp(
-        (await provider.getBlock("latest")).timestamp + 1
+        (await ethers.provider.getBlock("latest")).timestamp + 1
       );
       await pair.sync();
 
       const swapAmount = expandTo18Decimals(1);
       await time.setNextBlockTimestamp(
-        (await provider.getBlock("latest")).timestamp + 1
+        (await ethers.provider.getBlock("latest")).timestamp + 1
       );
       const tx = await router02.swapExactETHForTokens(
         0,

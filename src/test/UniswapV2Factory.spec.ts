@@ -1,9 +1,10 @@
 import { expect } from "chai";
 import { constants as ethconst, Wallet } from "ethers";
 import { UniswapV2Factory } from "../../typechain-types";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 
 import { getCreate2Address } from "./shared/utilities";
-import { ethers, waffle } from "hardhat";
+import { ethers } from "hardhat";
 
 const TEST_ADDRESSES: [string, string] = [
   "0x1000000000000000000000000000000000000000",
@@ -11,13 +12,9 @@ const TEST_ADDRESSES: [string, string] = [
 ];
 
 describe("UniswapV2Factory", () => {
-  const loadFixture = waffle.createFixtureLoader(
-    waffle.provider.getWallets(),
-    waffle.provider
-  );
-
-  async function fixture([wallet, other]: Wallet[]) {
+  async function fixture() {
     const tmp = await ethers.getContractFactory("UniswapV2Factory");
+    const [wallet, other] = await ethers.getSigners();
     const factory = await tmp.deploy(wallet.address);
     return { factory: factory, wallet, other };
   }

@@ -1,21 +1,18 @@
 import { expect } from "chai";
-import { ethers, waffle } from "hardhat";
-import { expandTo18Decimals, getApprovalDigest } from "./shared/utilities";
-import type { Wallet } from "ethers";
+import { ethers } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber } from "ethers";
+
+import { expandTo18Decimals } from "./shared/utilities";
 
 const TOTAL_SUPPLY = expandTo18Decimals(10000);
 const TEST_AMOUNT = expandTo18Decimals(10);
 
 describe("UniswapV2ERC20", () => {
-  const loadFixture = waffle.createFixtureLoader(
-    waffle.provider.getWallets(),
-    waffle.provider
-  );
-
-  async function fixture([wallet, other]: Wallet[]) {
+  async function fixture() {
     const factory = await ethers.getContractFactory("ERC20");
     const token = await factory.deploy(TOTAL_SUPPLY);
+    const [wallet, other] = await ethers.getSigners();
     return { token: token, wallet, other };
   }
 
@@ -124,16 +121,37 @@ describe("UniswapV2ERC20", () => {
     const { token, wallet, other } = await loadFixture(fixture);
     const nonce = await token.nonces(wallet.address);
     const deadline = ethers.constants.MaxUint256;
-    const digest = await getApprovalDigest(
-      token,
-      { owner: wallet.address, spender: other.address, value: TEST_AMOUNT },
-      nonce,
-      deadline
+    const chainId = await wallet.getChainId();
+    const tokenName = await token.name();
+
+    const sig = await wallet._signTypedData(
+      // "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+      {
+        name: tokenName,
+        version: "1",
+        chainId: chainId,
+        verifyingContract: token.address,
+      },
+      // "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+      {
+        Permit: [
+          { name: "owner", type: "address" },
+          { name: "spender", type: "address" },
+          { name: "value", type: "uint256" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      },
+      {
+        owner: wallet.address,
+        spender: other.address,
+        value: TEST_AMOUNT,
+        nonce: nonce,
+        deadline: deadline,
+      }
     );
 
-    const { r, s, v } = wallet
-      ._signingKey()
-      .signDigest(Buffer.from(digest.slice(2), "hex"));
+    const { r, s, v } = ethers.utils.splitSignature(sig);
 
     await expect(
       token.permit(
