@@ -28,3 +28,5 @@ export function encodePrice(reserve0: BigNumber, reserve1: BigNumber) {
 }
 
 export const MINIMUM_LIQUIDITY = BigNumber.from(10).pow(3);
+
+export const UniswapVersion = "1";

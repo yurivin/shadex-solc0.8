@@ -3,7 +3,11 @@ import { expect } from "chai";
 import { BigNumber, Contract } from "ethers";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { expandTo18Decimals, MINIMUM_LIQUIDITY } from "./shared/utilities";
+import {
+  expandTo18Decimals,
+  MINIMUM_LIQUIDITY,
+  UniswapVersion,
+} from "./shared/utilities";
 import { UniswapV2Pair } from "../../typechain-types";
 
 describe("UniswapV2Router", () => {
@@ -439,7 +443,7 @@ describe("UniswapV2Router", () => {
       // "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
       {
         name: tokenName,
-        version: "1",
+        version: UniswapVersion,
         chainId: chainId,
         verifyingContract: pair.address,
       },
@@ -502,7 +506,7 @@ describe("UniswapV2Router", () => {
       // "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
       {
         name: tokenName,
-        version: "1",
+        version: UniswapVersion,
         chainId: chainId,
         verifyingContract: wethPair.address,
       },

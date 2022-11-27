@@ -3,7 +3,7 @@ import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber } from "ethers";
 
-import { expandTo18Decimals } from "./shared/utilities";
+import { expandTo18Decimals, UniswapVersion } from "./shared/utilities";
 
 const TOTAL_SUPPLY = expandTo18Decimals(10000);
 const TEST_AMOUNT = expandTo18Decimals(10);
@@ -24,6 +24,7 @@ describe("UniswapV2ERC20", () => {
     expect(await token.decimals()).to.eq(18);
     expect(await token.totalSupply()).to.eq(TOTAL_SUPPLY);
     expect(await token.balanceOf(wallet.address)).to.eq(TOTAL_SUPPLY);
+    const chainId = await wallet.getChainId();
     expect(await token.DOMAIN_SEPARATOR()).to.eq(
       ethers.utils.keccak256(
         ethers.utils.defaultAbiCoder.encode(
@@ -35,8 +36,8 @@ describe("UniswapV2ERC20", () => {
               )
             ),
             ethers.utils.keccak256(ethers.utils.toUtf8Bytes(name)),
-            ethers.utils.keccak256(ethers.utils.toUtf8Bytes("1")),
-            1,
+            ethers.utils.keccak256(ethers.utils.toUtf8Bytes(UniswapVersion)),
+            chainId,
             token.address,
           ]
         )
@@ -128,7 +129,7 @@ describe("UniswapV2ERC20", () => {
       // "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
       {
         name: tokenName,
-        version: "1",
+        version: UniswapVersion,
         chainId: chainId,
         verifyingContract: token.address,
       },

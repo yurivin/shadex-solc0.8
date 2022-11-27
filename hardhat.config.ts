@@ -11,7 +11,6 @@ import "./src/tasks/accounts";
 const config: HardhatUserConfig = {
   networks: {
     hardhat: {
-      chainId: 1,
       blockGasLimit: 30000000,
     },
   },
