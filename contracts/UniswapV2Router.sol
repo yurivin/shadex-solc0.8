@@ -13,19 +13,26 @@ import "./interfaces/IUniswapV2Router.sol";
 import "./libraries/UniswapV2Library.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/IWETH.sol";
+import "./UniswapV2Pair.sol";
+import "./shadex/IShadexERC20.sol";
+import "./shadex/ShadexERC20.sol";
 
 contract UniswapV2Router is IUniswapV2Router {
     address public immutable override factory;
     address public immutable override WETH;
+    address public accountant;
+    mapping (address => address) private shadeLps;
+    mapping (address => address) private shadeLpsRw;
 
     modifier ensure(uint256 deadline) {
         require(deadline >= block.timestamp, "UniswapV2Router: EXPIRED");
         _;
     }
 
-    constructor(address _factory, address _WETH) {
+    constructor(address _factory, address _WETH, address _accountant) {
         factory = _factory;
         WETH = _WETH;
+        accountant = _accountant;
     }
 
     receive() external payable {
@@ -45,6 +52,14 @@ contract UniswapV2Router is IUniswapV2Router {
         if (IUniswapV2Factory(factory).getPair(tokenA, tokenB) == address(0)) {
             IUniswapV2Factory(factory).createPair(tokenA, tokenB);
         }
+
+        address pair = IUniswapV2Factory(factory).getPair(tokenA, tokenB);
+        if(shadeLps[pair] == address(0)) {
+            address shadeLp = address(new ShadexERC20());
+            shadeLps[pair] = shadeLp;
+            shadeLpsRw[shadeLp] = pair;
+        }
+
         (uint256 reserveA, uint256 reserveB) = UniswapV2Library.getReserves(
             factory,
             tokenA,
@@ -105,9 +120,12 @@ contract UniswapV2Router is IUniswapV2Router {
             amountBMin
         );
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
+        ShadexERC20 shadeLp = ShadexERC20(shadeLps[pair]);
+
         TransferHelper.safeTransferFrom(tokenA, msg.sender, pair, amountA);
         TransferHelper.safeTransferFrom(tokenB, msg.sender, pair, amountB);
-        liquidity = IUniswapV2Pair(pair).mint(to);
+        liquidity = IUniswapV2Pair(pair).mint(address(this));
+        shadeLp.mint(to, liquidity);
     }
 
     function addLiquidityETH(

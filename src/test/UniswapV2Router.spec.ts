@@ -35,7 +35,7 @@ describe("UniswapV2Router", () => {
 
     // deploy routers
     const router = await ethers.getContractFactory("UniswapV2Router");
-    const router02 = await router.deploy(factoryV2.address, WETH.address);
+    const router02 = await router.deploy(factoryV2.address, WETH.address, wallet.address);
 
     // initialize V2
     await factoryV2.createPair(tokenA.address, tokenB.address);
